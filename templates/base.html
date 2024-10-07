@@ -1,0 +1,54 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Магазин электроники{% endblock %}</title>
+    {#    {% compress css %}#}
+    <link rel="stylesheet" href="{% static 'css/base.css' %}" as="style">
+    {% block styles %} {% endblock %}
+    {#    {% endcompress %}#}
+</head>
+
+<body>
+<header class="header">
+    <div class="container">
+        <nav class="nav">
+            <a href="{% url 'home' %}" class="logo">ElectroShop</a>
+            <ul class="nav-links">
+                <li><a href="{% url 'home' %}">Главная</a></li>
+                <li><a href="{% url 'about' %}">О нас</a></li>
+                <li><a href="{% url 'products' %}">Товары</a></li>
+                {% if user.is_authenticated %}
+                    <li><a href="{% url 'profile' %}">Профиль</a></li>
+                    <li><a href="{% url 'cart_detail' %}">Корзина</a></li>
+                    <li><p>{{ user.username }}</p></li>
+                    <form method="post" action="{% url 'logout' %}" style="margin: 1%">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-clear" style="padding: 5px">Выйти</button>
+                    </form>
+                {% else %}
+                    <li><a href="/account/login">Вход</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</header>
+<main class="container">
+    <div class="block-content">
+        {% block content %}
+        {% endblock %}
+    </div>
+</main>
+
+<footer>
+    <div class="container">
+        <p>&copy; 2024 Магазин электроники. Все права защищены.</p>
+    </div>
+</footer>
+
+{% block scripts %} {% endblock %}
+</body>
+</html>
