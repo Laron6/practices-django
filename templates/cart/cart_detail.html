@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'css/cart_detail.css' %}">
+    <link rel="stylesheet" href="{% static 'css/modal.css' %}">
+    {#    <link rel="preload" href="https://code.jquery.com/jquery-3.6.0.min.js" as="script"#}
+    {#          onload="this.onload=null;this.rel='script'">#}
+    {#        <script src=""></script>#}
+{% endblock %}
+
+{% block content %}
+    <div class="cart-container">
+        <h2>Корзина</h2>
+
+        {% if cart %}
+            <table class="cart-table">
+                <thead>
+                <tr>
+                    <th>Товар</th>
+                    <th>Цена</th>
+                    <th>Количество</th>
+                    <th>Итого</th>
+                    <th>Действие</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for item in cart %}
+                    <tr data-product-id="{{ item.product.id }}">
+                        <td class="cart-item-name">
+                            <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}"
+                                 class="cart-item-image">
+                            <span>{{ item.product.name }}</span>
+                        </td>
+                        <td class="cart-item-price">{{ item.product.price }} руб.</td>
+                        <td class="cart-item-quantity">
+                            <button class="btn-decrease">-</button>
+                            <span class="quantity">{{ item.quantity }}</span>
+                            <button class="btn-increase">+</button>
+                        </td>
+                        <td class="cart-item-total">{{ item.total_price }} руб.</td>
+                        <td class="cart-item-action">
+                            <a href="#" class="remove-item" data-product-id="{{ item.product.id }}">Удалить</a>
+                        </td>
+                    </tr>
+
+                {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="cart-summary">
+                <p><strong>Общая сумма:</strong> <span id="total-price">{{ cart.get_total_price }} руб.</span></p>
+            </div>
+
+            <div class="cart-actions">
+                <a href="{% url 'cart_clear' %}" class="btn btn-clear">Очистить корзину</a>
+                <a href="{% url 'products' %}" class="btn btn-continue">Продолжить покупки</a>
+                {#                <form method="post" action="{% url 'checkout' %}">#}
+                {#                    {% csrf_token %}#}
+                {#                    {{ form.as_p }}#}
+                {#                    <button type="submit" class="btn btn-checkout">Оформить заказ</button>#}
+                {#                </form>#}
+                {#                <a href="{% url 'checkout' %}" class="btn btn-checkout">Оформить заказ</a>#}
+                <button id="openOrderForm" class="btn btn-checkout">Оформить заказ</button>
+            </div>
+
+        {% else %}
+            <p>Ваша корзина пуста.</p>
+        {% endif %}
+    </div>
+
+    <!-- Модальное окно -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Оформление заказа</h2>
+            <!-- Если форма не валидна, выводим ошибки -->
+            {% if form.errors %}
+                <div class="alert alert-danger">
+                    <ul>
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            <form id="orderForm" method="POST" action="{% url 'checkout' %}">
+                {% csrf_token %}
+
+                <!-- Отображаем форму по полям -->
+                <div class="form-group">
+                    <label for="full_name">{{ form.full_name.label }}</label>
+                    {{ form.full_name }}
+                </div>
+
+                <div class="form-group">
+                    <label for="user_phone">{{ form.user_phone.label }}</label>
+                    {{ form.user_phone }}
+                </div>
+
+                <div class="form-group">
+                    <label for="user_email">{{ form.user_email.label }}</label>
+                    {{ form.user_email }}
+                </div>
+
+                <div class="form-group">
+                    <label for="address">{{ form.address.label }}</label>
+                    {{ form.address }}
+                </div>
+
+                <!-- Поле для статуса оплаты, скрытое -->
+                {{ form.payment_status }}
+                <button type="submit" class="btn btn-submit">Подтвердить заказ</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+
+{% block scripts %}
+    <script rel="preload" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Открытие модального окна
+        $('#openOrderForm').click(function () {
+            $('#orderModal').show();
+        });
+
+        // Закрытие модального окна при клике на "X"
+        $('.close').click(function () {
+            $('#orderModal').hide();
+        });
+
+        // Закрытие модального окна при клике вне окна
+        $(window).click(function (event) {
+            if (event.target === document.getElementById('orderModal')) {
+                $('#orderModal').hide();
+            }
+        });
+    </script>
+    <script>
+        // Увеличение и уменьшение количества товара
+        $(document).on('click', '.btn-increase, .btn-decrease', function () {
+            let productId = $(this).closest('tr').data('product-id');
+            let change = $(this).hasClass('btn-increase') ? 1 : -1;
+            updateQuantity(productId, change);
+        });
+
+        function updateQuantity(productId, change) {
+            $.ajax({
+                url: '{% url "cart_update_quantity" %}',
+                method: 'POST',
+                data: {
+                    product_id: productId,
+                    change: change,
+                    csrfmiddlewaretoken: '{{ csrf_token }}',
+                },
+                success: function (response) {
+                    $('tr[data-product-id="' + productId + '"] .quantity').text(response.quantity);
+                    $('tr[data-product-id="' + productId + '"] .cart-item-total').text(response.item_total_price + " руб.");
+                    $('#total-price').text(response.total_price + " руб.");
+                }
+            });
+        }
+
+        // Удаление товара
+        $(document).on('click', '.remove-item', function (e) {
+            e.preventDefault();
+            let productId = $(this).data('product-id');
+            removeItem(productId);
+        });
+
+        function removeItem(productId) {
+            $.ajax({
+                url: '{% url "cart_remove" %}',
+                method: 'POST',
+                data: {
+                    product_id: productId,
+                    csrfmiddlewaretoken: '{{ csrf_token }}',
+                },
+                success: function (response) {
+                    $('tr[data-product-id="' + productId + '"]').remove();
+                    $('#total-price').text(response.total_price + " руб.");
+                }
+            });
+        }
+    </script>
+{% endblock %}
